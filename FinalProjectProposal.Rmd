@@ -1,0 +1,204 @@
+---
+title: "Final Project Proposal"
+author: "Hudson Pak, Justin Lewinski, Everett Prussak"
+subtitle: MGSC 310 Final Projet Proposal
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+
+
+library(knitr)
+
+# As long as you are working in a Rstudio Project file, you shouldn't need to 'hard code' directories like this 
+# change to your own working directory
+#knitr::opts_knit$set(root.dir = 'C:/Users/doosti/Desktop/MGSC_310')
+
+# set seed to your own favorite number
+set.seed(310)
+options(width=70)
+# if you want to prevent scientific format for numbers use this:
+options(scipen=99)
+
+# general rchunk code options
+opts_chunk$set(tidy.opts=list(width.wrap=50),tidy=FALSE, size = "vsmall")
+opts_chunk$set(message = FALSE,
+               warning = FALSE,
+               cache = TRUE,
+               autodep = TRUE,
+               cache.comments = FALSE,
+               collapse = TRUE,
+               fig.width = 5,  
+               fig.height = 4,
+               fig.align='center')
+
+```
+
+```{r setup_2}
+
+# load all your libraries here
+library('tidyverse')
+library(ggcorrplot)
+library(rsample)
+library(plotROC)
+library(yardstick)
+library(glmnet)
+library(glmnetUtils)
+# note, do not run install.packages() inside a code chunk. install them in the console outside of a code chunk. 
+
+```
+
+
+
+
+Summary Statistics
+
+```{r}
+
+# code
+data <- read.csv('diabetes.csv')
+data <- data[-7]
+
+head(data)
+summary(data)
+```
+
+
+Train-Test-Split
+
+```{r}
+
+# code
+library(rsample)
+set.seed(310)
+data_split <- initial_split(data,prop=0.8)
+data_train <- training(data_split)
+data_test <- testing(data_split)
+
+
+```
+
+
+
+Logistic Regression Model
+```{r}
+logit <- glm(Outcome ~ .,
+             data = data_train,
+             family = binomial
+             )
+
+summary(logit)
+```
+At a 95% confidence, Pregnancies, Glucose, BloodPressure, and BMI are statistically significant.
+
+Exponentiating Coefficients
+```{r}
+exp(logit$coefficients)
+
+```
+Interpretation for the variable 'Glucose' (Marginal Effect):
+he marginal effect of Glucose shows us that 1 unit increase in Glucose would result in 3.4 percent increase in likelihood of having diabetes.
+
+
+Scoring the model:
+```{r}
+
+results_train <- data.frame(
+  true_numeric = data_train$Outcome,
+  true_factor = factor(data_train$Outcome),
+  scores = predict(logit, type = 'response', newdata = data_train)
+)
+
+results_test <- data.frame(
+  true_numeric = data_test$Outcome,
+  true_factor = factor(data_test$Outcome),
+  scores = predict(logit, type = 'response', newdata = data_test)
+)
+
+```
+
+
+ROC Curves:
+```{r}
+roc_train <- ggplot(results_train, aes(m=scores, d=true_numeric)) + 
+  geom_roc(cutoffs.at = c(0.7,0.6,0.5,0.4,0.3)) +
+  labs("ROC Curve (Train)", x = "False Positive Rate", y ="True Positive Rate")
+
+print(roc_train)
+
+roc_test <- ggplot(results_test, aes(m=scores, d=true_numeric)) + 
+  geom_roc(cutoffs.at = c(0.7,0.6,0.5,0.4,0.3)) +
+  labs("ROC Curve (Test)", x = "False Positive Rate", y ="True Positive Rate")
+
+print(roc_test)
+```
+
+From these two graph's, we chose a cutoff value of 0.3 because it seems to be a good cutoff as it results in balanced false and true positive rates.
+
+
+Class Assignments
+```{r}
+predicted_train <- ifelse(results_train$scores>0.3,1,0)
+results_train <- results_train %>% 
+  mutate(predicted = factor(predicted_train))
+
+results_train %>% glimpse()
+
+predicted_test <- ifelse(results_test$scores>0.3,1,0)
+results_test <- results_test %>% 
+  mutate(predicted = factor(predicted_test))
+
+results_test %>% glimpse()
+```
+
+Train Confusion Matrix
+```{r}
+cm_train <- conf_mat(results_train, truth = true_factor, estimate = predicted)
+print(cm_train)
+```
+Train Accuracy, Sensitivity, and Specificity Scores:
+```{r}
+accuracy <- (281+160) / (160+281+52+121)
+paste0('Accuracy for the train is ', round(accuracy,4)*100, ' percent')
+
+sensitivity <- (160) / (160 + 52)
+paste0('Sensitivity for the train is ', round(sensitivity,4)*100, ' percent')
+
+specificity <- (281) / (281 + 121)
+paste0('Specificity for the train is ', round(specificity,4)*100, ' percent')
+
+```
+
+
+Test Confusion Matrix
+```{r}
+cm_test <- conf_mat(results_test, truth = true_factor, estimate = predicted)
+print(cm_test)
+```
+
+Test Accuracy, Sensitivity, and Specificity Scores:
+```{r}
+accuracy <- (65+49) / (65+49+33+7)
+paste0('Accuracy for the test is ', round(accuracy,4)*100, ' percent')
+
+sensitivity <- (49) / (49+7)
+paste0('Sensitivity for the test is ', round(sensitivity,4)*100, ' percent')
+
+specificity <- (65) / (65 + 33)
+paste0('Specificity for the test is ', round(specificity,4)*100, ' percent')
+
+```
+
+
+AUC
+```{r}
+calc_auc(roc_train)
+calc_auc(roc_test)
+```
+
+Interestingly, we see that the AUC for the test-set is actually slightly better than the train data.
+
+
