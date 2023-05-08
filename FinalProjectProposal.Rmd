@@ -61,14 +61,27 @@ Summary Statistics
 
 # code
 data <- read.csv('diabetes.csv')
-data <- data[-7]
+#data <- data[-7]
 data <- data %>%
   mutate(bp_st = BloodPressure*SkinThickness,
-         age_squared = Age * Age
+         age_squared = Age * Age,
+         glucose_insulin = Glucose * Insulin,
+         insulin_squared = Insulin * Insulin,
+         Outcome = factor(Outcome)
          )
+
+dim(data)
+data <- data %>% filter(
+  Glucose > 0,
+  BloodPressure > 0,
+  SkinThickness > 0,
+  BMI > 0
+)
 
 head(data)
 summary(data)
+
+dim(data)
 ```
 age_squared and bp_st are created because the original model was slightly underfit. By adding these created variables, the model became mode complex and allowed for the model to be less underfit.
 
@@ -78,7 +91,7 @@ Train-Test-Split
 
 # code
 library(rsample)
-set.seed(310)
+set.seed(300)
 data_split <- initial_split(data,prop=0.8)
 data_train <- training(data_split)
 data_test <- testing(data_split)
@@ -97,7 +110,7 @@ logit <- glm(Outcome ~ .,
 
 summary(logit)
 ```
-At a 95% confidence Glucose, BloodPressure, BMI, Age, and age_squared are statistically significant.
+At a 95% confidence Glucose, BloodPressure, BMI, DiabetesPedigreeFunction, Age, and age_squared are statistically significant.
 
 Exponentiating Coefficients
 ```{r}
@@ -105,21 +118,21 @@ exp(logit$coefficients)
 
 ```
 Interpretation for the variable 'Glucose' (Marginal Effect):
-he marginal effect of Glucose shows us that 1 unit increase in Glucose would result in 3.39 percent increase in likelihood of having diabetes.
+he marginal effect of Glucose shows us that 1 unit increase in Glucose would result in 3.38 percent increase in likelihood of having diabetes.
 
 
 Scoring the model:
 ```{r}
 
 results_train <- data.frame(
-  true_numeric = data_train$Outcome,
-  true_factor = factor(data_train$Outcome),
+  true_numeric = as.numeric(data_train$Outcome),
+  true_factor = data_train$Outcome,
   scores = predict(logit, type = 'response', newdata = data_train)
 )
 
 results_test <- data.frame(
-  true_numeric = data_test$Outcome,
-  true_factor = factor(data_test$Outcome),
+  true_numeric = as.numeric(data_test$Outcome),
+  true_factor = data_test$Outcome,
   scores = predict(logit, type = 'response', newdata = data_test)
 )
 
@@ -161,22 +174,22 @@ results_test %>% glimpse()
 
 Train Confusion Matrix
 ```{r}
-cm_train <- conf_mat(results_train, truth = true_factor, estimate = predicted)
-print(cm_train)
+train_cm <- conf_mat(results_train, truth = true_factor, estimate = predicted)
+print(train_cm)
+
 ```
 Train Accuracy, Sensitivity, and Specificity Scores:
 ```{r}
-accuracy <- (288+172) / (172+288+40+114)
+accuracy <- (207+124) / (207+124+23+71)
 paste0('Accuracy for the train is ', round(accuracy,4)*100, ' percent')
 
-sensitivity <- (172) / (172 + 40)
+sensitivity <- (124) / (124 + 23)
 paste0('Sensitivity for the train is ', round(sensitivity,4)*100, ' percent')
 
-specificity <- (288) / (288 + 114)
+specificity <- (207) / (207 + 71)
 paste0('Specificity for the train is ', round(specificity,4)*100, ' percent')
 
 ```
-
 
 Test Confusion Matrix
 ```{r}
@@ -184,15 +197,16 @@ cm_test <- conf_mat(results_test, truth = true_factor, estimate = predicted)
 print(cm_test)
 ```
 
+
 Test Accuracy, Sensitivity, and Specificity Scores:
 ```{r}
-accuracy <- (67+51) / (67+51+31+5)
+accuracy <- (62+22) / (22+62+8+15)
 paste0('Accuracy for the test is ', round(accuracy,4)*100, ' percent')
 
-sensitivity <- (51) / (51+5)
+sensitivity <- (22) / (22+8)
 paste0('Sensitivity for the test is ', round(sensitivity,4)*100, ' percent')
 
-specificity <- (67) / (67 + 31)
+specificity <- (62) / (62 + 15)
 paste0('Specificity for the test is ', round(specificity,4)*100, ' percent')
 
 ```
@@ -202,70 +216,121 @@ AUC
 ```{r}
 calc_auc(roc_train)
 calc_auc(roc_test)
-```
-
-Interestingly, we see that the AUC for the test-set is actually slightly better than the train data.
 
 
 
-Lasso Model
-```{r}
-lasso_mod <- cv.glmnet(Outcome ~ .,
-                       data = data_train,
-                       # note alpha = 1 sets Lasso!  
-                       alpha = 1)
-
-plot(lasso_mod)
-print(lasso_mod$lambda.min)
-
-print(lasso_mod$lambda.1se)
-
-coef(lasso_mod, s = lasso_mod$lambda.min) %>% 
-  round(3)
-
-
-coef(lasso_mod, s = lasso_mod$lambda.1se) %>% 
-  round(3)
-
-lasso_coefs <- data.frame(
-  lasso_min = coef(lasso_mod, s = lasso_mod$lambda.min) %>% 
-    round(3) %>% as.matrix() ,
-  lasso_1se = coef(lasso_mod, s = lasso_mod$lambda.1se) %>% 
-    round(3) %>% as.matrix() 
-) %>% rename(lasso_min = 1, lasso_1se = 2)
-
-print(lasso_coefs)
-
-library('coefplot')
-coefpath(lasso_mod)
-
-# number of non-zero predictors
-lasso_coefs %>% head()
-# for lambda.min
-lasso_coefs %>% filter(lasso_min != 0) %>% 
-  nrow()
-
-    
-
-# for lambda.1se
-lasso_coefs %>% filter(lasso_1se != 0) %>% 
-  nrow()
 
 ```
 
-Performance of Lasso
+The AUC for the training data is 0.87 and AUC for the testing data is 0.84. These numbers are close to each, but can show a slight overfitting. 
+
+Decision Tree Model
 
 ```{r}
-library(caret)
-predict_train_1 <- predict(lasso_mod, s=lasso_mod$lambda.min,data_train)
+library(tree)
+tree_diabetes <- tree(Outcome ~.,
+                 data = data_train)
+              #   control = tree.control(nobs=nrow(data_train),
+                      #                  mindev = 0.005))
 
-predict_test_1 <- predict(lasso_mod,s = lasso_mod$lambda.min, data_test)
+summary(tree_diabetes)
+```
 
-results_train_1 <- data_train %>% mutate(pred = predict_train_1)
-RMSE(results_train_1$pred,results_train_1$Outcome)
-# test
-results_test_1 <- data_test %>% mutate(pred = predict_test_1)
-RMSE(results_test_1$pred,results_test_1$Outcome)
+```{r}
+plot(tree_diabetes)
+text(tree_diabetes,pretty=0, cex = 0.75)
+```
+
+
+Pruning Tree
+```{r}
+cv.diabetes <- cv.tree(tree_diabetes, FUN=prune.misclass)
+
+plot(cv.diabetes, type='b')
+
+cv_results <- data.frame(
+  tree_size = cv.diabetes$size,
+  error = cv.diabetes$dev
+)
+
+print(cv_results)
+
+pruned_tree <- prune.tree(tree_diabetes, best = 10)
+```
+
+Pruned Tree Plot
+```{r}
+# plot the pruned tree
+plot(pruned_tree)
+text(pruned_tree, pretty=0, cex = 0.75)
+```
+
+Train Results
+
+```{r}
+
+results_train_2 <- data.frame(
+  true_numeric = as.numeric(data_train$Outcome),
+  true_factor = data_train$Outcome,
+  predict = predict(pruned_tree, type = 'class', newdata = data_train)
+)
+
+library(yardstick)
+cm_train_2 <- conf_mat(results_train_2, truth = true_factor, estimate = predict)
+print(cm_train_2)
+
+
+
+accuracy <- (230+115) / (230+115+48+32)
+paste0('Accuracy for the test is ', round(accuracy,4)*100, ' percent')
+
+sensitivity <- (115) / (115+32)
+paste0('Sensitivity for the test is ', round(sensitivity,4)*100, ' percent')
+
+specificity <- (230) / (230+48)
+paste0('Specificity for the test is ', round(specificity,4)*100, ' percent')
+
+```
+
+Test Results
+```{r}
+results_test_2 <- data.frame(
+  true_numeric = as.numeric(data_test$Outcome),
+  true_factor = data_test$Outcome,
+  predict = predict(pruned_tree, type = 'class', newdata = data_test)
+)
+
+library(yardstick)
+cm_test_2 <- conf_mat(results_test_2, truth = true_factor, estimate = predict)
+print(cm_test_2)
+
+accuracy <- (60+20) / (20+60+17+10)
+paste0('Accuracy for the test is ', round(accuracy,4)*100, ' percent')
+
+sensitivity <- (20) / (20+10)
+paste0('Sensitivity for the test is ', round(sensitivity,4)*100, ' percent')
+
+specificity <- (60) / (60 + 17)
+paste0('Specificity for the test is ', round(specificity,4)*100, ' percent')
+
+```
+
+
+
+AUC Scores
+```{r}
+library(pROC)
+
+train_auc <- roc(results_train_2$true_numeric, as.numeric(results_train_2$predict))
+print("Train AUC")
+print(train_auc)
+
+
+test_auc <- roc(results_test_2$true_numeric, as.numeric(results_test_2$predict))
+
+print("Test AUC")
+print(test_auc)
+
 
 
 ```
