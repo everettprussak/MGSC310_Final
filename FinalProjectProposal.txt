@@ -3,6 +3,68 @@
 <html>
 
 <head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
 
 <meta charset="utf-8" />
 <meta name="generator" content="pandoc" />
@@ -7500,7 +7562,6 @@ library(plotROC)
 library(yardstick)
 library(glmnet)
 library(glmnetUtils)
-library(Metrics)
 # note, do not run install.packages() inside a code chunk. install them in the console outside of a code chunk. </code></pre>
 <p>Summary Statistics</p>
 <pre class="r"><code>
@@ -7810,18 +7871,13 @@ lasso_coefs %&gt;% filter(lasso_1se != 0) %&gt;%
   nrow()
 ## [1] 6</code></pre>
 <p>Performance of Lasso</p>
-<pre class="r"><code>library(caret)
-predict_train_1 &lt;- predict(lasso_mod, s=lasso_mod$lambda.min,data_train)
-
-predict_test_1 &lt;- predict(lasso_mod,s = lasso_mod$lambda.min, data_test)
-
-results_train_1 &lt;- data_train %&gt;% mutate(pred = predict_train_1)
-RMSE(results_train_1$pred,results_train_1$Outcome)
-## [1] 0.3946979
-# test
-results_test_1 &lt;- data_test %&gt;% mutate(pred = predict_test_1)
-RMSE(results_test_1$pred,results_test_1$Outcome)
-## [1] 0.3956132</code></pre>
+<pre class="r"><code>library(&quot;knitr&quot;)
+knit2html(&quot;FinalProjectProposal.html&quot;)
+## 
+  |                                                                  
+  |                                                            |   0%
+  |                                                                  
+  |............................................................| 100%</code></pre>
 
 
 

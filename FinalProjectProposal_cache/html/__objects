@@ -1,2 +1,16 @@
 setup_2	
-unnamed-chunk-1	data	diabetes
+unnamed-chunk-1	data
+unnamed-chunk-2	data_split	data_test	data_train
+unnamed-chunk-3	logit
+unnamed-chunk-4	
+unnamed-chunk-5	results_test	results_train
+unnamed-chunk-6	roc_test	roc_train
+unnamed-chunk-7	predicted_test	predicted_train	results_test	results_train
+unnamed-chunk-8	cm_train
+unnamed-chunk-9	accuracy	sensitivity	specificity
+unnamed-chunk-10	cm_test
+unnamed-chunk-11	accuracy	sensitivity	specificity
+unnamed-chunk-12	
+unnamed-chunk-13	lasso_coefs	lasso_mod	.FinalProjectProposal_cache/html/unnamed-chunk-13_f02f841ce8caf52994b5168402e102f7_meta
+unnamed-chunk-14	predict_test_1	predict_train_1	results_test_1	results_train_1
+unnamed-chunk-15	

@@ -1,2 +1,16 @@
 setup_2	library
-unnamed-chunk-1	head	read.csv	summary
+unnamed-chunk-1	%>%	Age	BloodPressure	head	mutate	read.csv	SkinThickness	summary
+unnamed-chunk-2	data	initial_split	library	set.seed	testing	training
+unnamed-chunk-3	~	binomial	data_train	glm	summary
+unnamed-chunk-4	$	exp	logit
+unnamed-chunk-5	$	data_test	data_train	data.frame	factor	logit	predict
+unnamed-chunk-6	aes	c	geom_roc	ggplot	labs	print	results_test	results_train	scores	true_numeric
+unnamed-chunk-7	%>%	>	$	factor	glimpse	ifelse	mutate
+unnamed-chunk-8	conf_mat	predicted	print	results_train	true_factor
+unnamed-chunk-9	paste0	round
+unnamed-chunk-10	conf_mat	predicted	print	results_test	true_factor
+unnamed-chunk-11	paste0	round
+unnamed-chunk-12	calc_auc	roc_test	roc_train
+unnamed-chunk-13	!=	%>%	~	$	as.matrix	coef	coefpath	cv.glmnet	data_train	data.frame	filter	head	lasso_1se	lasso_min	library	nrow	plot	print	rename	round
+unnamed-chunk-14	%>%	$	data_test	data_train	lasso_mod	library	mutate	predict	RMSE
+unnamed-chunk-15	knit2html	library

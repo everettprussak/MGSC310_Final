@@ -47,6 +47,7 @@ library(plotROC)
 library(yardstick)
 library(glmnet)
 library(glmnetUtils)
+library(Metrics)
 # note, do not run install.packages() inside a code chunk. install them in the console outside of a code chunk. 
 
 ```
@@ -61,11 +62,15 @@ Summary Statistics
 # code
 data <- read.csv('diabetes.csv')
 data <- data[-7]
+data <- data %>%
+  mutate(bp_st = BloodPressure*SkinThickness,
+         age_squared = Age * Age
+         )
 
 head(data)
 summary(data)
 ```
-
+age_squared and bp_st are created because the original model was slightly underfit. By adding these created variables, the model became mode complex and allowed for the model to be less underfit.
 
 Train-Test-Split
 
@@ -92,7 +97,7 @@ logit <- glm(Outcome ~ .,
 
 summary(logit)
 ```
-At a 95% confidence, Pregnancies, Glucose, BloodPressure, and BMI are statistically significant.
+At a 95% confidence Glucose, BloodPressure, BMI, Age, and age_squared are statistically significant.
 
 Exponentiating Coefficients
 ```{r}
@@ -100,7 +105,7 @@ exp(logit$coefficients)
 
 ```
 Interpretation for the variable 'Glucose' (Marginal Effect):
-he marginal effect of Glucose shows us that 1 unit increase in Glucose would result in 3.4 percent increase in likelihood of having diabetes.
+he marginal effect of Glucose shows us that 1 unit increase in Glucose would result in 3.39 percent increase in likelihood of having diabetes.
 
 
 Scoring the model:
@@ -161,13 +166,13 @@ print(cm_train)
 ```
 Train Accuracy, Sensitivity, and Specificity Scores:
 ```{r}
-accuracy <- (281+160) / (160+281+52+121)
+accuracy <- (288+172) / (172+288+40+114)
 paste0('Accuracy for the train is ', round(accuracy,4)*100, ' percent')
 
-sensitivity <- (160) / (160 + 52)
+sensitivity <- (172) / (172 + 40)
 paste0('Sensitivity for the train is ', round(sensitivity,4)*100, ' percent')
 
-specificity <- (281) / (281 + 121)
+specificity <- (288) / (288 + 114)
 paste0('Specificity for the train is ', round(specificity,4)*100, ' percent')
 
 ```
@@ -181,13 +186,13 @@ print(cm_test)
 
 Test Accuracy, Sensitivity, and Specificity Scores:
 ```{r}
-accuracy <- (65+49) / (65+49+33+7)
+accuracy <- (67+51) / (67+51+31+5)
 paste0('Accuracy for the test is ', round(accuracy,4)*100, ' percent')
 
-sensitivity <- (49) / (49+7)
+sensitivity <- (51) / (51+5)
 paste0('Sensitivity for the test is ', round(sensitivity,4)*100, ' percent')
 
-specificity <- (65) / (65 + 33)
+specificity <- (67) / (67 + 31)
 paste0('Specificity for the test is ', round(specificity,4)*100, ' percent')
 
 ```
@@ -200,5 +205,70 @@ calc_auc(roc_test)
 ```
 
 Interestingly, we see that the AUC for the test-set is actually slightly better than the train data.
+
+
+
+Lasso Model
+```{r}
+lasso_mod <- cv.glmnet(Outcome ~ .,
+                       data = data_train,
+                       # note alpha = 1 sets Lasso!  
+                       alpha = 1)
+
+plot(lasso_mod)
+print(lasso_mod$lambda.min)
+
+print(lasso_mod$lambda.1se)
+
+coef(lasso_mod, s = lasso_mod$lambda.min) %>% 
+  round(3)
+
+
+coef(lasso_mod, s = lasso_mod$lambda.1se) %>% 
+  round(3)
+
+lasso_coefs <- data.frame(
+  lasso_min = coef(lasso_mod, s = lasso_mod$lambda.min) %>% 
+    round(3) %>% as.matrix() ,
+  lasso_1se = coef(lasso_mod, s = lasso_mod$lambda.1se) %>% 
+    round(3) %>% as.matrix() 
+) %>% rename(lasso_min = 1, lasso_1se = 2)
+
+print(lasso_coefs)
+
+library('coefplot')
+coefpath(lasso_mod)
+
+# number of non-zero predictors
+lasso_coefs %>% head()
+# for lambda.min
+lasso_coefs %>% filter(lasso_min != 0) %>% 
+  nrow()
+
+    
+
+# for lambda.1se
+lasso_coefs %>% filter(lasso_1se != 0) %>% 
+  nrow()
+
+```
+
+Performance of Lasso
+
+```{r}
+library(caret)
+predict_train_1 <- predict(lasso_mod, s=lasso_mod$lambda.min,data_train)
+
+predict_test_1 <- predict(lasso_mod,s = lasso_mod$lambda.min, data_test)
+
+results_train_1 <- data_train %>% mutate(pred = predict_train_1)
+RMSE(results_train_1$pred,results_train_1$Outcome)
+# test
+results_test_1 <- data_test %>% mutate(pred = predict_test_1)
+RMSE(results_test_1$pred,results_test_1$Outcome)
+
+
+```
+
 
 

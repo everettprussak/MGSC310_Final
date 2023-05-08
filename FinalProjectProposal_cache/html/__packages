@@ -8,3 +8,14 @@ purrr
 dplyr
 stringr
 forcats
+ggcorrplot
+rsample
+plotROC
+yardstick
+Matrix
+glmnet
+glmnetUtils
+coefplot
+Metrics
+lattice
+caret
